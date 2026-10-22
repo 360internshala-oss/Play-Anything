@@ -949,10 +949,7 @@ fn help_section(title: &'static str) -> Line<'static> {
 
 fn help_row(key: &'static str, description: &'static str) -> Line<'static> {
     Line::from(vec![
-        Span::styled(
-            format!(" {key:<20}", key = key),
-            Style::default().fg(theme::PURPLE),
-        ),
+        Span::styled(format!(" {key:<20}"), Style::default().fg(theme::PURPLE)),
         Span::styled(description, Style::default().fg(theme::MUTED)),
     ])
 }

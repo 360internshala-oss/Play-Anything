@@ -15,94 +15,78 @@ Play local music, movies, folders, playlists, radio streams, and supported web U
 - **Responsive modern interface** — true-color video, ambient visualizer, track metadata, clickable progress/transport controls, mouse wheel, toast messages, and focus mode.
 - **Clean terminal lifecycle** — raw mode, mouse capture, and alternate screen are restored on exit and panic.
 
-## Requirements
+## One-command setup and run
 
-| Component | Why | Required |
-| --- | --- | --- |
-| Rust 1.75+ | Build the application | Build only |
-| [mpv](https://mpv.io/) | Playback, audio output, streams, metadata, and the media clock | **Yes** |
-| [FFmpeg](https://ffmpeg.org/) | Decode/scaled RGB frames for terminal video | Video only |
-| [yt-dlp](https://github.com/yt-dlp/yt-dlp) | Web-site playback and preview URL resolution | Supported web sites |
-| A Unicode terminal | Rounded panels, icons, and half-block video | **Yes** |
-| 24-bit color | Best visual quality | Recommended |
-
-Linux and macOS are supported. The player currently uses mpv's Unix-socket JSON IPC.
-
-### Install media dependencies
-
-**Debian / Ubuntu**
-
-```bash
-sudo apt update
-sudo apt install mpv ffmpeg yt-dlp
-```
-
-**Fedora**
-
-```bash
-sudo dnf install mpv ffmpeg yt-dlp
-```
-
-**Arch Linux**
-
-```bash
-sudo pacman -S mpv ffmpeg yt-dlp
-```
-
-**macOS with Homebrew**
-
-```bash
-brew install mpv ffmpeg yt-dlp
-```
-
-Some distribution repositories package an older or unavailable `yt-dlp`; see the [yt-dlp installation guide](https://github.com/yt-dlp/yt-dlp#installation) when needed.
-
-## Build and run
+On Linux x86_64 or aarch64, **this is the only command you need**:
 
 ```bash
 git clone https://github.com/360internshala-oss/Play-Anything.git
 cd Play-Anything
-cargo run --release
+./play
 ```
 
-With no arguments, Play Anything scans supported media in the current directory (without entering subdirectories). An empty queue is fine: press **`o`** to open anything.
+The first launch automatically installs everything the application needs and then builds and opens the player:
 
-Install the binary for repeated use:
+- A stable Rust toolchain, if Rust is not already available
+- mpv for playback, audio output, streams, metadata, and the media clock
+- FFmpeg for in-terminal video frames
+- yt-dlp for supported web-site playback and preview resolution
+- All locked Cargo dependencies
+
+There is **no sudo, manual media installation, or PATH editing**. Tools and runtime data live in the Git-ignored `.tools/` directory inside Play Anything. Subsequent launches reuse them. A Unicode terminal and standard `curl`/`tar` utilities are needed for the initial download; 24-bit color is recommended.
+
+To prepare everything without opening the player:
 
 ```bash
-cargo install --path .
-play-anything
+./scripts/bootstrap.sh
+```
+
+To prevent any network access after setup:
+
+```bash
+PLAY_ANYTHING_OFFLINE=1 ./play
+```
+
+macOS uses the same project-local Rust bootstrap and installs media backends through Homebrew when available. The player itself supports Linux and macOS through mpv's Unix-socket JSON IPC. Linux media setup is fully project-local and does not depend on a distribution package manager.
+
+With no media arguments, Play Anything scans supported media in the current directory without entering subdirectories. An empty queue is fine: press **`o`** to open anything.
+
+For development, the same environment can be loaded directly:
+
+```bash
+source scripts/env.sh
+cargo run --locked --release
 ```
 
 ### Examples
 
 ```bash
 # Play one file
-play-anything ~/Music/song.flac
+./play ~/Music/song.flac
 
 # Build a queue from several inputs and autoplay the first
-play-anything song.mp3 movie.mkv https://example.com/radio
+./play song.mp3 movie.mkv https://example.com/radio
 
 # Recursively discover a music or video library
-play-anything --recursive ~/Music ~/Videos
+./play --recursive ~/Music ~/Videos
 
 # Import a playlist
-play-anything ./favorites.m3u
+./play ./favorites.m3u
 
 # Play a site supported by yt-dlp
-play-anything "https://www.youtube.com/watch?v=VIDEO_ID"
+./play "https://www.youtube.com/watch?v=VIDEO_ID"
 
 # Audio/visualizer only, useful on slow connections or small terminals
-play-anything --no-video movie.mkv
+./play --no-video movie.mkv
 
 # Smoother video on fast terminals (default is 15 fps)
-play-anything --video-fps 24 movie.mkv
+./play --video-fps 24 movie.mkv
 
 # Check dependencies and terminal capabilities
-play-anything --doctor
+./play --doctor
 
 # Every CLI option
-play-anything --help
+./play --help
 ```
 
 > Quote URLs in your shell so `&`, `?`, and other characters are passed literally. Site URLs require `yt-dlp`; direct media URLs generally work with mpv/FFmpeg alone.
@@ -157,15 +141,15 @@ The visualizer is intentionally an **ambient animation**, not a claim of real-ti
 
 ### `Could not start 'mpv'`
 
-Install mpv and confirm `mpv --version` works. You can select a nonstandard executable with `--mpv /path/to/mpv`.
+Run `./scripts/bootstrap.sh`, then `./play --doctor`. The launcher will repair a missing project-local mpv automatically. You can select a custom executable with `--mpv /path/to/mpv`.
 
 ### Audio works but the stage says video is unavailable
 
-Install FFmpeg, check `ffmpeg -version`, and run `play-anything --doctor`. Audio-only files intentionally show the visualizer. Some web services expose audio to mpv but do not provide a compatible combined preview format; playback still works.
+Run `./scripts/bootstrap.sh` and then `./play --doctor` to verify the managed FFmpeg installation. Audio-only files intentionally show the visualizer. Some web services expose audio to mpv but do not provide a compatible combined preview format; playback still works.
 
 ### Web URLs do not play
 
-Install/update `yt-dlp` and quote the URL. A site can also be unsupported, geo-restricted, or require authentication. This application does not bypass those restrictions.
+Quote the URL and run `./play --doctor` to check the managed `yt-dlp`. A site can also be unsupported, geo-restricted, or require authentication. This application does not bypass those restrictions.
 
 ### Colors or glyphs look wrong
 
@@ -178,16 +162,17 @@ Use `--video-fps 8` or `--no-video`, enlarge the terminal only as needed, and en
 ## Development
 
 ```bash
+source scripts/env.sh
 cargo fmt --check
-cargo clippy --all-targets -- -D warnings
-cargo test --all-targets
-cargo build --release
+cargo clippy --locked --all-targets -- -D warnings
+cargo test --locked --all-targets
+cargo build --locked --release
 
-# On Linux with mpv, FFmpeg, and util-linux installed:
+# On Linux, after ./scripts/bootstrap.sh (util-linux provides `script`):
 ./scripts/smoke-test.sh
 ```
 
-The unit test suite does not need a running mpv server or media files. The optional smoke test generates a short synthetic movie, starts real mpv/FFmpeg processes in a pseudo-terminal, exercises pause/resume/quit, and checks clean shutdown. Runtime playback requires the external dependencies described above.
+The unit test suite does not need a running mpv server or media files. The optional smoke test generates a short synthetic movie, starts real mpv/FFmpeg processes in a pseudo-terminal, exercises pause/resume/quit, and checks clean shutdown. The normal launcher manages all media dependencies described above.
 
 ### Source layout
 

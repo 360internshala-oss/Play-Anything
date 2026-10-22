@@ -24,7 +24,9 @@ jobs:
         run: cargo test --locked --all-targets
       - name: Build release
         run: cargo build --locked --release
-      - name: Install runtime smoke-test dependencies
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mpv ffmpeg util-linux
+      - name: Bootstrap project-local media dependencies
+        run: ./scripts/bootstrap.sh
       - name: Exercise real playback and terminal lifecycle
-        run: ./scripts/smoke-test.sh
+        run: |
+          source scripts/env.sh
+          ./scripts/smoke-test.sh

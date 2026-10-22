@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# One-command setup, build, and launch for Play Anything.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/env.sh
+source "$ROOT/scripts/env.sh"
+"$ROOT/scripts/bootstrap.sh"
+# Reload in case bootstrap created a new project-local Cargo/Rustup home.
+# shellcheck source=scripts/env.sh
+source "$ROOT/scripts/env.sh"
+
+cd "$ROOT"
+# A conservative default also works in memory-limited sandboxes; callers can override it.
+export CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS:-1}"
+exec cargo run --locked --release -- "$@"

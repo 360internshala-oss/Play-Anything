@@ -9,6 +9,7 @@ mod video;
 use std::{
     env,
     io::{self, IsTerminal, Stdout},
+    path::{Path, PathBuf},
     process::{Command, ExitCode},
     time::{Duration, Instant},
 };
@@ -80,7 +81,8 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<()> {
-    let cli = Cli::parse();
+    let mut cli = Cli::parse();
+    resolve_managed_tools(&mut cli);
     if cli.doctor {
         print_doctor(&cli);
         return Ok(());
@@ -127,6 +129,35 @@ fn run() -> Result<()> {
 
     restore_terminal();
     result
+}
+
+fn resolve_managed_tools(cli: &mut Cli) {
+    cli.mpv = managed_binary(&cli.mpv, "mpv");
+    cli.ffmpeg = managed_binary(&cli.ffmpeg, "ffmpeg");
+    cli.ytdlp = managed_binary(&cli.ytdlp, "yt-dlp");
+}
+
+fn managed_binary(requested: &str, name: &str) -> String {
+    if requested != name {
+        return requested.to_string();
+    }
+
+    let mut candidates = Vec::new();
+    if let Some(tools) = env::var_os("PLAY_ANYTHING_TOOLS") {
+        candidates.push(PathBuf::from(tools).join("bin").join(name));
+    }
+    candidates.push(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join(".tools")
+            .join("bin")
+            .join(name),
+    );
+
+    candidates
+        .into_iter()
+        .find(|path| path.is_file())
+        .map(|path| path.to_string_lossy().into_owned())
+        .unwrap_or_else(|| requested.to_string())
 }
 
 fn run_event_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, mut app: App) -> Result<()> {
@@ -209,7 +240,9 @@ fn print_doctor(cli: &Cli) {
         "Terminal: {}",
         env::var("TERM").unwrap_or_else(|_| "unknown".to_string())
     );
-    println!("\nAudio works with mpv alone. Install FFmpeg for video and yt-dlp for site URLs.");
+    println!(
+        "\nAudio uses mpv. The ./play launcher manages FFmpeg for video and yt-dlp for site URLs."
+    );
 }
 
 fn check_binary(binary: &str, version_argument: &str) -> Result<String, String> {

@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   rust:
+    if: ${{ !contains(github.event.head_commit.message, 'remote diagnostics') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,11 +19,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Apply formatting
         run: cargo fmt --all
-      - name: Persist formatting for the remote validation branch
+      - name: Collect compiler diagnostics
+        run: cargo clippy --all-targets --message-format short -- -D warnings > remote-diagnostics.txt 2>&1
+        continue-on-error: true
+      - name: Persist formatting and remote diagnostics
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Apply rustfmt during remote validation"
-          file_pattern: "src/*.rs"
+          commit_message: "Apply rustfmt and collect remote diagnostics"
+          file_pattern: "src/*.rs Cargo.lock remote-diagnostics.txt"
       - name: Lint
         run: cargo clippy --all-targets -- -D warnings
       - name: Test

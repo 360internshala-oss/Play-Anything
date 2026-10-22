@@ -1,0 +1,30 @@
+[package]
+name = "play-anything"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A polished terminal audio and video player powered by mpv and FFmpeg"
+license = "Apache-2.0"
+repository = "https://github.com/360internshala-oss/Play-Anything"
+keywords = ["terminal", "tui", "audio", "video", "mpv"]
+categories = ["multimedia", "command-line-utilities"]
+
+[dependencies]
+anyhow = "1.0"
+clap = { version = "4.5", features = ["derive"] }
+crossterm = "0.28"
+ratatui = "0.29"
+serde_json = "1.0"
+walkdir = "2.5"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true
+opt-level = 3
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"

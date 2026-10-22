@@ -173,7 +173,15 @@ fn title_for_source(source: &str) -> String {
             .next()
             .unwrap_or(clean);
         if !final_segment.is_empty() && !final_segment.contains("://") {
-            return decode_percent_encoding(final_segment);
+            let title = decode_percent_encoding(final_segment);
+            if matches!(kind_for_source(source), MediaKind::Audio | MediaKind::Video) {
+                return Path::new(&title)
+                    .file_stem()
+                    .and_then(|value| value.to_str())
+                    .unwrap_or(&title)
+                    .replace('_', " ");
+            }
+            return title;
         }
         return source
             .split("://")

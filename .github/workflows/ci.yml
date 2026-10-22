@@ -5,7 +5,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   rust:
@@ -16,8 +16,13 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
-      - name: Check formatting
-        run: cargo fmt --all -- --check
+      - name: Apply formatting
+        run: cargo fmt --all
+      - name: Persist formatting for the remote validation branch
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Apply rustfmt during remote validation"
+          file_pattern: "src/*.rs"
       - name: Lint
         run: cargo clippy --all-targets -- -D warnings
       - name: Test

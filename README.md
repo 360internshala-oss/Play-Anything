@@ -182,9 +182,12 @@ cargo fmt --check
 cargo clippy --all-targets -- -D warnings
 cargo test --all-targets
 cargo build --release
+
+# On Linux with mpv, FFmpeg, and util-linux installed:
+./scripts/smoke-test.sh
 ```
 
-The test suite does not need a running mpv server or media files. Runtime playback requires the external dependencies described above.
+The unit test suite does not need a running mpv server or media files. The optional smoke test generates a short synthetic movie, starts real mpv/FFmpeg processes in a pseudo-terminal, exercises pause/resume/quit, and checks clean shutdown. Runtime playback requires the external dependencies described above.
 
 ### Source layout
 

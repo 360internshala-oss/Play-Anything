@@ -185,7 +185,11 @@ fn run_event_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, mut app: Ap
                         break;
                     }
                 }
-                Event::Mouse(mouse) => app.handle_mouse(mouse),
+                Event::Mouse(mouse) => {
+                    if app.handle_mouse(mouse) {
+                        break;
+                    }
+                }
                 Event::Paste(text) => app.handle_paste(text),
                 Event::Resize(_, _) => {
                     // The next draw recalculates every region; tick then restarts the decoder at
@@ -240,13 +244,22 @@ fn print_doctor(cli: &Cli) {
             "set COLORTERM=truecolor if colors look limited".to_string()
         }
     );
-    println!("\nPlatform: {}", env::consts::OS);
+    let is_termux = env::var_os("TERMUX_VERSION").is_some()
+        || env::var("PREFIX")
+            .map(|prefix| prefix.contains("com.termux"))
+            .unwrap_or(false);
+    let platform = if is_termux {
+        "Android/Termux".to_string()
+    } else {
+        env::consts::OS.to_string()
+    };
+    println!("\nPlatform: {platform}");
     println!(
         "Terminal: {}",
         env::var("TERM").unwrap_or_else(|_| "unknown".to_string())
     );
     println!(
-        "\nAudio uses mpv. The ./play launcher manages FFmpeg for video and yt-dlp for site URLs."
+        "\nAudio uses mpv. The installer and ./play launcher manage FFmpeg for video and yt-dlp for site URLs."
     );
 }
 

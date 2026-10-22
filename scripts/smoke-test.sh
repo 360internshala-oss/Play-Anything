@@ -61,4 +61,30 @@ if grep -qiE 'panicked at|player disconnected|could not play' "$WORK/terminal.lo
     exit 1
 fi
 
-echo "Runtime smoke test passed: mpv + FFmpeg + TUI + input + clean shutdown"
+# A phone-sized layout must remain usable without a keyboard. Send an SGR left-click
+# to the QUIT action at the bottom-right of a 32x14 terminal.
+printf -v compact_command '%q ' \
+    "$BINARY" \
+    --mpv "$WORK/mpv-null" \
+    --no-video \
+    "$WORK/sample.mp4"
+set +e
+(
+    sleep 3
+    printf '\033[<0;28;14M'
+) | timeout 25 script -q -e -c "stty rows 14 cols 32; $compact_command" \
+    "$WORK/compact-terminal.log" >/dev/null 2>&1
+compact_status=$?
+set -e
+if [[ $compact_status -ne 0 ]]; then
+    echo "Compact touch smoke test failed with status $compact_status" >&2
+    tail -80 "$WORK/compact-terminal.log" >&2 || true
+    exit "$compact_status"
+fi
+if grep -qiE 'panicked at|player disconnected|could not play' "$WORK/compact-terminal.log"; then
+    echo "Compact touch smoke test found an application error" >&2
+    tail -80 "$WORK/compact-terminal.log" >&2 || true
+    exit 1
+fi
+
+echo "Runtime smoke test passed: mpv + FFmpeg + desktop/compact touch TUI + clean shutdown"

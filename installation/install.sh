@@ -38,13 +38,27 @@ command -v curl >/dev/null 2>&1 || fail 'curl is required to download Play Anyth
 command -v uname >/dev/null 2>&1 || fail 'uname is required to detect this platform'
 
 case "$(uname -s)" in
-    Linux) platform='linux' ;;
+    Linux)
+        if [[ -n "${TERMUX_VERSION:-}" || "${PREFIX:-}" == *com.termux* ]]; then
+            platform='termux'
+        else
+            platform='linux'
+        fi
+        ;;
     Darwin) platform='macos' ;;
     *) fail "Unsupported Unix platform: $(uname -s). Use installation/install.ps1 on Windows." ;;
 esac
 case "$(uname -m)" in
     x86_64|amd64) architecture='x86_64' ;;
     aarch64|arm64) architecture='aarch64' ;;
+    armv7l|armv8l|arm)
+        [[ "$platform" == 'termux' ]] || fail "Unsupported Linux CPU architecture: $(uname -m)"
+        architecture='armv7'
+        ;;
+    i686|i586|x86)
+        [[ "$platform" == 'termux' ]] || fail "Unsupported Linux CPU architecture: $(uname -m)"
+        architecture='i686'
+        ;;
     *) fail "Unsupported CPU architecture: $(uname -m)" ;;
 esac
 
@@ -75,6 +89,7 @@ fi
 
 cat >"$TEMP_DIRECTORY/play-anything" <<EOF
 #!/usr/bin/env bash
+# Play Anything managed command
 export PLAY_ANYTHING_ROOT="$INSTALL_HOME"
 export PLAY_ANYTHING_TOOLS="$INSTALL_HOME/.tools"
 exec "$INSTALL_HOME/bin/play-anything" "\$@"
@@ -84,7 +99,9 @@ chmod +x "$TEMP_DIRECTORY/play-anything"
 COMMAND_DIR="${PLAY_ANYTHING_COMMAND_DIR:-}"
 ELEVATE=''
 if [[ -z "$COMMAND_DIR" ]]; then
-    if path_contains "$HOME/.local/bin"; then
+    if [[ "$platform" == 'termux' && -n "${PREFIX:-}" ]] && path_contains "$PREFIX/bin"; then
+        COMMAND_DIR="$PREFIX/bin"
+    elif path_contains "$HOME/.local/bin"; then
         COMMAND_DIR="$HOME/.local/bin"
     elif [[ -d /usr/local/bin && -w /usr/local/bin ]]; then
         COMMAND_DIR='/usr/local/bin'

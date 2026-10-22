@@ -12,12 +12,12 @@ Play local music, movies, folders, playlists, radio streams, and supported web U
 - **Playlist import** — M3U, extended M3U/M3U8, and PLS, including relative paths and `EXTINF` metadata.
 - **Complete transport** — pause, exact seek, next/previous, stop, volume, mute, 0.25×–4× speed, and embedded audio-track switching.
 - **Queue tools** — live filtering, recursive discovery, duplicate removal, remove/clear, repeat off/all/one, and reversible shuffle.
-- **Responsive modern interface** — true-color video, ambient visualizer, track metadata, clickable progress/transport controls, mouse wheel, toast messages, and focus mode.
+- **Responsive modern interface** — true-color video, ambient visualizer, track metadata, touch-friendly action/transport controls, mouse wheel, toast messages, and focus mode.
 - **Clean terminal lifecycle** — raw mode, mouse capture, and alternate screen are restored on exit and panic.
 
 ## Install — no Rust required
 
-### Linux and macOS
+### Linux, Android/Termux, and macOS
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/360internshala-oss/Play-Anything/main/installation/install.sh | bash
@@ -39,13 +39,44 @@ play-anything
 Play-Anything
 ```
 
-There are no required subcommands. The application enters its alternate-screen interface immediately, with the queue, video/visualizer stage, metadata, playback controls, and keyboard/mouse support.
+There are no required subcommands. The application enters its alternate-screen interface immediately, with the queue, video/visualizer stage, metadata, playback controls, and keyboard/touch/mouse support.
 
-- **Linux:** native x86_64 and aarch64 builds with project-local media runtimes
-- **macOS:** native Intel and Apple Silicon builds; media setup is automated with Homebrew
-- **Windows:** native x86_64 and ARM64 builds with managed mpv, FFmpeg, and yt-dlp runtimes
+- **Linux:** statically linked x86_64 and aarch64 builds work with glibc or musl. Portable project-local media runtimes are preferred, with automatic apt, dnf, yum, pacman, zypper, apk, and xbps fallbacks.
+- **Android/Termux:** native aarch64, x86_64, armv7, and i686 builds. The installer uses Termux's `pkg` packages directly—never an AppImage—and installs commands into `$PREFIX/bin`.
+- **macOS:** native Intel and Apple Silicon builds; media setup is automated with Homebrew.
+- **Windows:** native x86_64 and ARM64 builds with managed mpv, FFmpeg, and yt-dlp runtimes.
 - **Unix runtime:** `~/.local/share/play-anything`
 - **Windows runtime:** `%LOCALAPPDATA%\Programs\play-anything`
+
+The same installer upgrades an existing installation to the latest release. Run `play-anything --version` to confirm the installed version. Linux package fallback can request a sudo password only when the portable media runtime cannot run; Termux never needs sudo.
+
+## Touch and mouse controls
+
+The interface includes an action bar and does not require keyboard shortcuts:
+
+- Tap **OPEN**, **SEARCH**, **HELP**, or **QUIT** directly.
+- Tap **▶**, **⏮**, **⏭**, **−**, and **+** for playback and volume.
+- Tap a queue item to select it; double-tap to play it.
+- Tap or drag the progress bar to seek. Swipe or use the mouse wheel to move through the queue.
+- Open and help dialogs have tappable confirmation and close buttons.
+
+On phone-sized terminals, Play Anything automatically switches to a compact queue-and-controls layout. The full desktop layout returns when more space is available.
+
+## Uninstall
+
+### Linux, Android/Termux, and macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/360internshala-oss/Play-Anything/main/installation/uninstall.sh | bash
+```
+
+### Windows 10/11 — PowerShell
+
+```powershell
+irm https://raw.githubusercontent.com/360internshala-oss/Play-Anything/main/installation/uninstall.ps1 | iex
+```
+
+Uninstall removes both command names, application files, managed runtimes, PATH entries, and Windows user environment variables. Shared packages installed by Termux, Homebrew, or a Linux distribution are left unchanged so other applications are not broken; all Windows-managed media runtimes are removed.
 
 ## Build and run from source — optional
 
@@ -65,7 +96,7 @@ The first launch automatically installs everything the application needs and the
 - yt-dlp for supported web-site playback and preview resolution
 - All locked Cargo dependencies
 
-There is **no sudo, manual media installation, or PATH editing**. Tools and runtime data live in the Git-ignored `.tools/` directory inside Play Anything. Subsequent launches reuse them. A Unicode terminal and standard `curl`/`tar` utilities are needed for the initial download; 24-bit color is recommended.
+There is **no manual media installation or PATH editing**. Tools and runtime data normally live in the Git-ignored `.tools/` directory inside Play Anything and subsequent launches reuse them. If a portable Linux media runtime cannot run, the automatic native-package fallback can request sudo. A Unicode terminal and standard `curl`/`tar` utilities are needed for the initial download; 24-bit color is recommended.
 
 To prepare everything without opening the player:
 
@@ -79,7 +110,7 @@ To prevent any network access after setup:
 PLAY_ANYTHING_OFFLINE=1 ./play
 ```
 
-macOS uses the same project-local Rust bootstrap and installs media backends through Homebrew when available. Linux media setup is fully project-local and does not depend on a distribution package manager. The player communicates with mpv through Unix sockets on Linux/macOS and native named pipes on Windows.
+macOS uses the same project-local Rust bootstrap and installs media backends through Homebrew when available. Preferred Linux media setup is project-local; Termux, musl systems, and compatibility fallbacks use their native package managers automatically. The player communicates with mpv through Unix sockets on Linux/Android/macOS and native named pipes on Windows.
 
 With no media arguments, Play Anything scans supported media in the current directory without entering subdirectories. An empty queue is fine: press **`o`** to open anything.
 
@@ -153,13 +184,13 @@ cargo run --locked --release
 | `q` | Quit |
 | `Ctrl+C` | Quit from anywhere |
 
-**Mouse:** click to select, double-click to play, scroll the queue, click the progress bar to seek, or use the on-screen previous/play/next and volume buttons.
+**Touch/mouse:** tap to select, double-tap to play, swipe or scroll the queue, tap or drag the progress bar to seek, and use the on-screen action bar, previous/play/next, and volume buttons.
 
 Open prompts support character navigation, `Home`, `End`, `Delete`, `Backspace`, `Ctrl+U`, and terminal paste.
 
 ## How terminal video works
 
-1. A persistent mpv process plays audio and exposes properties/events over JSON IPC.
+1. A persistent mpv process plays audio and exchanges properties/events over JSON IPC—Unix sockets on Linux/Android/macOS and named pipes on Windows.
 2. A background FFmpeg process decodes the first video stream into fixed-size RGB frames.
 3. A bounded channel backpressures FFmpeg, preventing unbounded memory use.
 4. Frames carry presentation timestamps and are held or dropped against mpv's clock.
@@ -185,7 +216,7 @@ Quote the URL and run `./play --doctor` to check the managed `yt-dlp`. A site ca
 
 ### Colors or glyphs look wrong
 
-Use a current terminal such as WezTerm, Kitty, Alacritty, Ghostty, iTerm2, or Windows Terminal with WSL. Set `COLORTERM=truecolor` when appropriate and choose a Unicode-capable font. The minimum UI size is **60×18**; larger is better for video.
+Use a current terminal such as WezTerm, Kitty, Alacritty, Ghostty, iTerm2, or Windows Terminal with WSL. Set `COLORTERM=truecolor` when appropriate and choose a Unicode-capable font. The compact touch UI works from **32×14**; the full side-by-side layout starts at **60×18**, and larger is better for video.
 
 ### Playback is slow over SSH/tmux
 
@@ -200,6 +231,9 @@ cargo clippy --locked --all-targets -- -D warnings
 cargo test --locked --all-targets
 cargo build --locked --release
 
+# Offline desktop/Termux installer and uninstaller lifecycle test:
+./scripts/test-installers.sh
+
 # On Linux, after ./scripts/bootstrap.sh (util-linux provides `script`):
 ./scripts/smoke-test.sh
 ```
@@ -210,8 +244,8 @@ The unit test suite does not need a running mpv server or media files. The optio
 
 ```text
 play              Source-only setup/build/TUI launcher
-installation/    No-Rust Linux, macOS, and Windows installers
-scripts/         Shared toolchain/media bootstrap and smoke tests
+installation/    No-Rust desktop/Termux installers and uninstallers
+scripts/         Shared bootstrap, installer tests, and playback/touch smoke tests
 src/main.rs    CLI, terminal setup, event loop, and diagnostics
 src/app.rs     Queue/playback state, controls, input, and synchronization
 src/player.rs  Persistent mpv process and JSON IPC protocol

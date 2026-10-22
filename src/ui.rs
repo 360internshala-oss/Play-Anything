@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         area,
     );
 
-    if area.width < 60 || area.height < 18 {
+    if area.width < 32 || area.height < 14 {
         render_small_terminal(frame, area);
         return;
     }
@@ -49,11 +49,11 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         render_body(frame, app, sections[1]);
     }
     render_transport(frame, app, sections[2]);
-    render_footer(frame, sections[3]);
+    render_footer(frame, app, sections[3]);
     render_toast(frame, app, area);
 
     if app.show_help {
-        render_help(frame, area);
+        render_help(frame, app, area);
     } else if app.input_mode == InputMode::Open {
         render_open_dialog(frame, app, area);
     }
@@ -66,6 +66,37 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
         .style(Style::default().bg(theme::BACKGROUND));
     let inner = block.inner(area);
     frame.render_widget(block, area);
+
+    if inner.width < 60 {
+        let status = if !app.connected {
+            "DISCONNECTED"
+        } else if app.loading {
+            "LOADING"
+        } else if app.current_id.is_some() && !app.playback.paused {
+            "NOW PLAYING"
+        } else if app.current_id.is_some() {
+            "PAUSED"
+        } else {
+            "READY"
+        };
+        let compact = vec![
+            Line::from(vec![
+                Span::styled(" ▶ PLAY ", Style::default().fg(theme::CYAN)),
+                Span::styled(
+                    "ANYTHING",
+                    Style::default()
+                        .fg(theme::PURPLE)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            ]),
+            Line::from(Span::styled(
+                format!(" ● {status} · touch controls below"),
+                Style::default().fg(theme::MUTED),
+            )),
+        ];
+        frame.render_widget(Paragraph::new(compact), inner);
+        return;
+    }
 
     let columns = Layout::default()
         .direction(Direction::Horizontal)
@@ -167,6 +198,10 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_body(frame: &mut Frame, app: &mut App, area: Rect) {
+    if area.width < 60 {
+        render_queue(frame, app, area);
+        return;
+    }
     let sidebar_width = (area.width / 3).clamp(27, 40);
     let columns = Layout::default()
         .direction(Direction::Horizontal)
@@ -593,6 +628,11 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
         .split(inner);
     render_progress(frame, app, sections[0]);
 
+    if sections[1].width < 60 {
+        render_compact_transport_controls(frame, app, sections[1]);
+        return;
+    }
+
     let columns = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
@@ -708,6 +748,53 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
     );
 }
 
+fn render_compact_transport_controls(frame: &mut Frame, app: &mut App, area: Rect) {
+    let controls = centered_rect(area, area.width.min(25), 1);
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(6),
+            Constraint::Length(7),
+            Constraint::Length(6),
+            Constraint::Length(3),
+        ])
+        .split(controls);
+    app.regions.volume_down = columns[0];
+    app.regions.previous = columns[1];
+    app.regions.play_pause = columns[2];
+    app.regions.next = columns[3];
+    app.regions.volume_up = columns[4];
+
+    for (index, text) in [" − ", " ⏮ ", " ▶ ", " ⏭ ", " + "].iter().enumerate() {
+        if index == 2 {
+            continue;
+        }
+        frame.render_widget(
+            Paragraph::new(*text)
+                .alignment(Alignment::Center)
+                .style(Style::default().fg(theme::MUTED).bg(theme::ELEVATED)),
+            columns[index],
+        );
+    }
+    let play_text = if app.playback.paused {
+        " ▶ "
+    } else {
+        " ❚❚ "
+    };
+    frame.render_widget(
+        Paragraph::new(play_text)
+            .alignment(Alignment::Center)
+            .style(
+                Style::default()
+                    .fg(theme::BACKGROUND)
+                    .bg(theme::CYAN)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        columns[2],
+    );
+}
+
 fn render_progress(frame: &mut Frame, app: &mut App, area: Rect) {
     let position = app.position();
     let duration = app.duration();
@@ -774,32 +861,39 @@ fn render_progress(frame: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-fn render_footer(frame: &mut Frame, area: Rect) {
-    let line = Line::from(vec![
-        key("space"),
-        label(" pause   "),
-        key("←/→"),
-        label(" seek   "),
-        key("enter"),
-        label(" play   "),
-        key("o"),
-        label(" open   "),
-        key("/"),
-        label(" search   "),
-        key("?"),
-        label(" help   "),
-        key("q"),
-        label(" quit"),
-    ]);
-    frame.render_widget(Paragraph::new(line).alignment(Alignment::Center), area);
-}
+fn render_footer(frame: &mut Frame, app: &mut App, area: Rect) {
+    let columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+        ])
+        .split(area);
+    app.regions.open = columns[0];
+    app.regions.search = columns[1];
+    app.regions.help = columns[2];
+    app.regions.quit = columns[3];
 
-fn key(text: &'static str) -> Span<'static> {
-    Span::styled(format!(" {text} "), Style::default().fg(theme::CYAN))
-}
-
-fn label(text: &'static str) -> Span<'static> {
-    Span::styled(text, Style::default().fg(theme::DIM))
+    for (index, text) in ["OPEN", "SEARCH", "HELP", "QUIT"].iter().enumerate() {
+        let color = match index {
+            2 => theme::PURPLE,
+            3 => theme::RED,
+            _ => theme::CYAN,
+        };
+        frame.render_widget(
+            Paragraph::new(format!(" {text} "))
+                .alignment(Alignment::Center)
+                .style(
+                    Style::default()
+                        .fg(color)
+                        .bg(theme::ELEVATED)
+                        .add_modifier(Modifier::BOLD),
+                ),
+            columns[index],
+        );
+    }
 }
 
 fn render_toast(frame: &mut Frame, app: &App, area: Rect) {
@@ -840,7 +934,7 @@ fn render_toast(frame: &mut Frame, app: &App, area: Rect) {
     );
 }
 
-fn render_open_dialog(frame: &mut Frame, app: &App, area: Rect) {
+fn render_open_dialog(frame: &mut Frame, app: &mut App, area: Rect) {
     let dialog = centered_rect(
         area,
         area.width.saturating_sub(6).min(76),
@@ -859,15 +953,32 @@ fn render_open_dialog(frame: &mut Frame, app: &App, area: Rect) {
         )),
         Line::from(""),
         input_line(app),
-        Line::from(""),
-        Line::from(vec![
-            Span::styled(" Enter ", Style::default().fg(theme::CYAN)),
-            Span::styled(" open & play    ", Style::default().fg(theme::DIM)),
-            Span::styled(" Esc ", Style::default().fg(theme::PURPLE)),
-            Span::styled(" cancel    ~ is supported", Style::default().fg(theme::DIM)),
-        ]),
     ];
     frame.render_widget(Paragraph::new(lines), inner);
+
+    let button_row = Rect {
+        y: inner.y + inner.height.saturating_sub(1),
+        height: 1,
+        ..inner
+    };
+    let buttons = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(button_row);
+    app.regions.dialog_accept = buttons[0];
+    app.regions.dialog_cancel = buttons[1];
+    frame.render_widget(
+        Paragraph::new(" ENTER · OPEN ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::BACKGROUND).bg(theme::CYAN)),
+        buttons[0],
+    );
+    frame.render_widget(
+        Paragraph::new(" ESC · CANCEL ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::TEXT).bg(theme::PURPLE)),
+        buttons[1],
+    );
 }
 
 fn input_line(app: &App) -> Line<'static> {
@@ -891,14 +1002,14 @@ fn input_line(app: &App) -> Line<'static> {
     ])
 }
 
-fn render_help(frame: &mut Frame, area: Rect) {
+fn render_help(frame: &mut Frame, app: &mut App, area: Rect) {
     let dialog = centered_rect(
         area,
         area.width.saturating_sub(4).min(76),
         area.height.saturating_sub(2).min(25),
     );
     frame.render_widget(Clear, dialog);
-    let block = theme::panel(" PLAY ANYTHING · KEYBOARD MAP ", theme::PURPLE)
+    let block = theme::panel(" PLAY ANYTHING · KEYBOARD + TOUCH ", theme::PURPLE)
         .border_style(Style::default().fg(theme::PURPLE).bg(theme::ELEVATED))
         .style(Style::default().bg(theme::ELEVATED));
     let inner = block.inner(dialog);
@@ -921,10 +1032,13 @@ fn render_help(frame: &mut Frame, area: Rect) {
         help_row("/ then Enter", "Filter queue · Esc clears filter"),
         help_row("d / C", "Remove selected / clear entire queue"),
         help_row("r / s", "Repeat off→all→one / shuffle on→off"),
-        help_section("VIEW & MOUSE"),
+        help_section("VIEW & TOUCH"),
         help_row("f / v", "Focus stage / cycle video-visualizer"),
-        help_row("Click / double-click", "Select / play · click bar to seek"),
-        help_row("Mouse wheel", "Scroll the queue"),
+        help_row(
+            "Tap / double-tap",
+            "Select / play · tap or drag bar to seek",
+        ),
+        help_row("Swipe / mouse wheel", "Move through the queue"),
         help_section("GENERAL"),
         help_row("? / F1 / q", "Toggle this help / quit"),
         Line::from(Span::styled(
@@ -932,7 +1046,26 @@ fn render_help(frame: &mut Frame, area: Rect) {
             Style::default().fg(theme::DIM),
         )),
     ];
-    frame.render_widget(Paragraph::new(lines).wrap(Wrap { trim: false }), inner);
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(1), Constraint::Length(1)])
+        .split(inner);
+    frame.render_widget(
+        Paragraph::new(lines).wrap(Wrap { trim: false }),
+        sections[0],
+    );
+    app.regions.help_close = sections[1];
+    frame.render_widget(
+        Paragraph::new(" CLOSE ")
+            .alignment(Alignment::Center)
+            .style(
+                Style::default()
+                    .fg(theme::BACKGROUND)
+                    .bg(theme::PURPLE)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        sections[1],
+    );
 }
 
 fn help_section(title: &'static str) -> Line<'static> {
@@ -969,7 +1102,7 @@ fn render_small_terminal(frame: &mut Frame, area: Rect) {
             Style::default().fg(theme::TEXT),
         )),
         Line::from(Span::styled(
-            "Minimum terminal size: 60 × 18",
+            "Minimum terminal size: 32 × 14",
             Style::default().fg(theme::MUTED),
         )),
         Line::from(Span::styled(

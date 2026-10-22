@@ -168,6 +168,13 @@ pub struct LayoutRegions {
     pub next: Rect,
     pub volume_down: Rect,
     pub volume_up: Rect,
+    pub open: Rect,
+    pub search: Rect,
+    pub help: Rect,
+    pub quit: Rect,
+    pub help_close: Rect,
+    pub dialog_accept: Rect,
+    pub dialog_cancel: Rect,
 }
 
 pub struct AppConfig {
@@ -637,7 +644,10 @@ impl App {
     fn change_volume(&mut self, amount: f64) {
         let volume = clamp((self.playback.volume + amount).round(), 0.0, 100.0);
         match self.player.set_volume(volume) {
-            Ok(()) => self.playback.volume = volume,
+            Ok(()) => {
+                self.playback.volume = volume;
+                self.toast(format!("Volume {volume:.0}%"), ToastKind::Info);
+            }
             Err(error) => self.toast(error.to_string(), ToastKind::Error),
         }
     }
@@ -1003,24 +1013,71 @@ impl App {
         }
     }
 
-    pub fn handle_mouse(&mut self, mouse: MouseEvent) {
-        if self.show_help || self.input_mode != InputMode::Normal {
-            return;
+    pub fn handle_mouse(&mut self, mouse: MouseEvent) -> bool {
+        let left_down = matches!(
+            mouse.kind,
+            MouseEventKind::Down(crossterm::event::MouseButton::Left)
+        );
+        let x = mouse.column;
+        let y = mouse.row;
+
+        if left_down && contains(self.regions.quit, x, y) {
+            return true;
         }
-        match mouse.kind {
-            MouseEventKind::ScrollUp
-                if contains(self.regions.playlist, mouse.column, mouse.row) =>
+        if self.show_help {
+            if left_down
+                && (contains(self.regions.help_close, x, y) || contains(self.regions.help, x, y))
             {
+                self.show_help = false;
+            }
+            return false;
+        }
+        if self.input_mode == InputMode::Open {
+            if left_down && contains(self.regions.dialog_accept, x, y) {
+                self.submit_input();
+            } else if left_down && contains(self.regions.dialog_cancel, x, y) {
+                self.cancel_input();
+            }
+            return false;
+        }
+        if self.input_mode != InputMode::Normal {
+            return false;
+        }
+
+        if left_down {
+            if contains(self.regions.open, x, y) {
+                self.begin_input(InputMode::Open);
+                return false;
+            }
+            if contains(self.regions.search, x, y) {
+                self.begin_input(InputMode::Search);
+                return false;
+            }
+            if contains(self.regions.help, x, y) {
+                self.show_help = true;
+                return false;
+            }
+        }
+
+        match mouse.kind {
+            MouseEventKind::ScrollUp if contains(self.regions.playlist, x, y) => {
                 self.move_selection(-3)
             }
-            MouseEventKind::ScrollDown
-                if contains(self.regions.playlist, mouse.column, mouse.row) =>
-            {
+            MouseEventKind::ScrollDown if contains(self.regions.playlist, x, y) => {
                 self.move_selection(3)
             }
+            MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            | MouseEventKind::Drag(crossterm::event::MouseButton::Left)
+                if contains(self.regions.progress, x, y) =>
+            {
+                if let Some(duration) = self.duration() {
+                    let width = self.regions.progress.width.max(1);
+                    let ratio = f64::from(x.saturating_sub(self.regions.progress.x))
+                        / f64::from(width.saturating_sub(1).max(1));
+                    self.seek_absolute(duration * ratio.clamp(0.0, 1.0));
+                }
+            }
             MouseEventKind::Down(crossterm::event::MouseButton::Left) => {
-                let x = mouse.column;
-                let y = mouse.row;
                 if contains(self.regions.playlist, x, y) {
                     let row = self.list_offset + usize::from(y - self.regions.playlist.y);
                     if let Some(index) = self.visible_indices().get(row).copied() {
@@ -1029,7 +1086,7 @@ impl App {
                         let double_click = self
                             .last_click
                             .map(|(time, last_id)| {
-                                last_id == id && time.elapsed() < Duration::from_millis(400)
+                                last_id == id && time.elapsed() < Duration::from_millis(500)
                             })
                             .unwrap_or(false);
                         if double_click {
@@ -1038,13 +1095,6 @@ impl App {
                         } else {
                             self.last_click = Some((Instant::now(), id));
                         }
-                    }
-                } else if contains(self.regions.progress, x, y) {
-                    if let Some(duration) = self.duration() {
-                        let width = self.regions.progress.width.max(1);
-                        let ratio = f64::from(x.saturating_sub(self.regions.progress.x))
-                            / f64::from(width.saturating_sub(1).max(1));
-                        self.seek_absolute(duration * ratio.clamp(0.0, 1.0));
                     }
                 } else if contains(self.regions.play_pause, x, y) {
                     self.toggle_pause();
@@ -1058,8 +1108,17 @@ impl App {
                     self.change_volume(5.0);
                 }
             }
+            MouseEventKind::Drag(crossterm::event::MouseButton::Left)
+                if contains(self.regions.playlist, x, y) =>
+            {
+                let row = self.list_offset + usize::from(y - self.regions.playlist.y);
+                if let Some(index) = self.visible_indices().get(row).copied() {
+                    self.selected = index;
+                }
+            }
             _ => {}
         }
+        false
     }
 }
 

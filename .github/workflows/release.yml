@@ -3,12 +3,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+    branches: ['arena/e0f082bc-play-anything']
   workflow_dispatch:
     inputs:
       tag_name:
         description: Release tag to create or update
         required: true
-        default: v1.0.0
+        default: v1.1.0
         type: string
 
 permissions:
@@ -21,11 +22,11 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-musl
             platform: linux
             architecture: x86_64
           - os: ubuntu-24.04-arm
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-musl
             platform: linux
             architecture: aarch64
           - os: macos-15-intel
@@ -51,6 +52,17 @@ jobs:
         with:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
+      - name: Install musl linker
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+      - name: Configure musl linker
+        if: matrix.platform == 'linux'
+        run: |
+          target='${{ matrix.target }}'
+          variable="CARGO_TARGET_${target//-/_}_LINKER"
+          echo "${variable^^}=musl-gcc" >> "$GITHUB_ENV"
       - name: Test native target
         run: cargo test --locked --target ${{ matrix.target }} --all-targets
       - name: Build native executable
@@ -61,6 +73,16 @@ jobs:
           mkdir -p dist
           cp "target/${{ matrix.target }}/release/play-anything" \
             "dist/play-anything-${{ matrix.platform }}-${{ matrix.architecture }}"
+      - name: Verify portable Linux executable
+        if: matrix.platform == 'linux'
+        run: |
+          asset="dist/play-anything-${{ matrix.platform }}-${{ matrix.architecture }}"
+          "$asset" --version
+          file "$asset"
+          if file "$asset" | grep -q 'dynamically linked'; then
+            echo 'Linux release asset must be statically linked' >&2
+            exit 1
+          fi
       - name: Package Windows executable
         if: runner.os == 'Windows'
         shell: pwsh
@@ -68,20 +90,22 @@ jobs:
           New-Item -ItemType Directory -Force -Path dist | Out-Null
           Copy-Item "target/${{ matrix.target }}/release/play-anything.exe" `
             "dist/play-anything-${{ matrix.platform }}-${{ matrix.architecture }}.exe"
-      - name: Validate PowerShell installer
+      - name: Validate PowerShell installers
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path 'installation/install.ps1').Path,
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
-          if ($errors.Count -gt 0) {
-            $errors | ForEach-Object { Write-Error $_ }
-            exit 1
+          Get-ChildItem 'installation/*.ps1' | ForEach-Object {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              $_.FullName,
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_ }
+              exit 1
+            }
           }
       - uses: actions/upload-artifact@v4
         with:
@@ -89,8 +113,54 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
+  termux-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-linux-android
+            architecture: aarch64
+            linker: aarch64-linux-android24-clang
+          - target: x86_64-linux-android
+            architecture: x86_64
+            linker: x86_64-linux-android24-clang
+          - target: armv7-linux-androideabi
+            architecture: armv7
+            linker: armv7a-linux-androideabi24-clang
+          - target: i686-linux-android
+            architecture: i686
+            linker: i686-linux-android24-clang
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Configure Android NDK linker
+        run: |
+          : "${ANDROID_NDK_HOME:?Android NDK is not installed on this runner}"
+          linker="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/${{ matrix.linker }}"
+          test -x "$linker"
+          target='${{ matrix.target }}'
+          variable="CARGO_TARGET_${target//-/_}_LINKER"
+          echo "${variable^^}=$linker" >> "$GITHUB_ENV"
+      - name: Build Termux executable
+        run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package Termux executable
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/play-anything" \
+            "dist/play-anything-termux-${{ matrix.architecture }}"
+          file "dist/play-anything-termux-${{ matrix.architecture }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-termux-${{ matrix.architecture }}
+          path: dist/*
+          if-no-files-found: error
+
   publish:
-    needs: build
+    needs: [build, termux-build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -104,10 +174,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag_name || github.ref_name }}
+          TAG: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.1.0') }}
         run: |
           set -euo pipefail
           ls -lh dist
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 10
           gh release create "$TAG" dist/* \
             --target "$GITHUB_SHA" \
             --title "Play Anything $TAG" \

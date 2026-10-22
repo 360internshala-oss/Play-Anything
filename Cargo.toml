@@ -1,6 +1,6 @@
 [package]
 name = "play-anything"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2021"
 rust-version = "1.75"
 description = "A polished terminal audio and video player powered by mpv and FFmpeg"

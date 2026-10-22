@@ -17,7 +17,9 @@ jobs:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Validate Unix installer scripts
-        run: bash -n installation/install.sh play scripts/*.sh
+        run: bash -n installation/*.sh play scripts/*.sh
+      - name: Test Linux and Termux installer lifecycles
+        run: ./scripts/test-installers.sh
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Lint

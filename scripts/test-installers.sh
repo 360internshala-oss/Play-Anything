@@ -33,6 +33,9 @@ PLAY_ANYTHING_SKIP_MEDIA=1 \
 [[ -L "$WORK/commands/Play-Anything" ]]
 "$WORK/commands/play-anything" --version
 "$WORK/commands/Play-Anything" --version
+# Also cover a copied (rather than symlinked) mixed-case wrapper on case-sensitive systems.
+rm "$WORK/commands/Play-Anything"
+cp "$WORK/commands/play-anything" "$WORK/commands/Play-Anything"
 grep -F "$WORK/commands" "$WORK/home/.profile" >/dev/null
 
 HOME="$WORK/home" \

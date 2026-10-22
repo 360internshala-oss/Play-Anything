@@ -46,6 +46,11 @@ remove_commands() {
     if [[ -L "$alias" && "$(readlink "$alias")" == 'play-anything' ]]; then
         remove_file "$alias"
         log "Removed $alias"
+    elif [[ -f "$alias" ]] && \
+        { grep -F '# Play Anything managed command' "$alias" >/dev/null 2>&1 || \
+          grep -F "PLAY_ANYTHING_ROOT=\"$INSTALL_HOME\"" "$alias" >/dev/null 2>&1; }; then
+        remove_file "$alias"
+        log "Removed $alias"
     fi
 }
 

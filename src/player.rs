@@ -3,8 +3,7 @@ compile_error!("play-anything currently supports Linux and macOS (mpv Unix-socke
 
 #[cfg(unix)]
 use std::{
-    env,
-    fs,
+    env, fs,
     io::{BufRead, BufReader, Write},
     os::unix::net::UnixStream,
     path::PathBuf,
@@ -116,7 +115,9 @@ impl MpvPlayer {
             .set_write_timeout(Some(Duration::from_secs(2)))
             .context("Could not configure mpv IPC")?;
 
-        let reader = stream.try_clone().context("Could not clone mpv IPC stream")?;
+        let reader = stream
+            .try_clone()
+            .context("Could not clone mpv IPC stream")?;
         let (event_tx, events) = mpsc::channel();
         let shutting_down = Arc::new(AtomicBool::new(false));
         let reader_shutdown = Arc::clone(&shutting_down);
@@ -172,8 +173,12 @@ impl MpvPlayer {
             .writer
             .lock()
             .map_err(|_| anyhow::anyhow!("mpv IPC writer lock was poisoned"))?;
-        writer.write_all(&encoded).context("Could not write to mpv")?;
-        writer.write_all(b"\n").context("Could not finish mpv command")?;
+        writer
+            .write_all(&encoded)
+            .context("Could not write to mpv")?;
+        writer
+            .write_all(b"\n")
+            .context("Could not finish mpv command")?;
         writer.flush().context("Could not flush mpv command")?;
         Ok(())
     }

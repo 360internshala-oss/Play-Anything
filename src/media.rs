@@ -9,16 +9,15 @@ use walkdir::WalkDir;
 const MAX_DISCOVERED_ITEMS: usize = 10_000;
 
 const AUDIO_EXTENSIONS: &[&str] = &[
-    "aac", "aif", "aiff", "alac", "amr", "ape", "au", "cda", "dff", "dsf", "flac",
-    "gsm", "it", "m4a", "m4b", "mid", "midi", "mka", "mod", "mp2", "mp3", "mpc",
-    "oga", "ogg", "opus", "ra", "ram", "s3m", "shn", "snd", "spx", "tta", "voc",
-    "wav", "wave", "wma", "wv", "xm",
+    "aac", "aif", "aiff", "alac", "amr", "ape", "au", "cda", "dff", "dsf", "flac", "gsm", "it",
+    "m4a", "m4b", "mid", "midi", "mka", "mod", "mp2", "mp3", "mpc", "oga", "ogg", "opus", "ra",
+    "ram", "s3m", "shn", "snd", "spx", "tta", "voc", "wav", "wave", "wma", "wv", "xm",
 ];
 
 const VIDEO_EXTENSIONS: &[&str] = &[
-    "3g2", "3gp", "asf", "avi", "divx", "dv", "f4v", "flv", "h264", "h265", "hevc",
-    "m2ts", "m2v", "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "mxf", "nut",
-    "ogm", "ogv", "rm", "rmvb", "swf", "ts", "vob", "webm", "wmv", "y4m",
+    "3g2", "3gp", "asf", "avi", "divx", "dv", "f4v", "flv", "h264", "h265", "hevc", "m2ts", "m2v",
+    "m4v", "mkv", "mov", "mp4", "mpeg", "mpg", "mts", "mxf", "nut", "ogm", "ogv", "rm", "rmvb",
+    "swf", "ts", "vob", "webm", "wmv", "y4m",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -65,7 +64,10 @@ impl MediaItem {
     }
 
     pub fn may_have_video(&self) -> bool {
-        matches!(self.kind, MediaKind::Video | MediaKind::Stream | MediaKind::Unknown)
+        matches!(
+            self.kind,
+            MediaKind::Video | MediaKind::Stream | MediaKind::Unknown
+        )
     }
 }
 
@@ -165,7 +167,11 @@ fn decode_percent_encoding(value: &str) -> String {
 fn title_for_source(source: &str) -> String {
     if is_url(source) {
         let clean = source.split(['?', '#']).next().unwrap_or(source);
-        let final_segment = clean.trim_end_matches('/').rsplit('/').next().unwrap_or(clean);
+        let final_segment = clean
+            .trim_end_matches('/')
+            .rsplit('/')
+            .next()
+            .unwrap_or(clean);
         if !final_segment.is_empty() && !final_segment.contains("://") {
             return decode_percent_encoding(final_segment);
         }
@@ -185,8 +191,8 @@ fn title_for_source(source: &str) -> String {
 }
 
 fn item_from_path(id: u64, path: &Path) -> Result<MediaItem, String> {
-    let canonical = fs::canonicalize(path)
-        .map_err(|error| format!("{}: {error}", path.display()))?;
+    let canonical =
+        fs::canonicalize(path).map_err(|error| format!("{}: {error}", path.display()))?;
     let metadata = fs::metadata(&canonical).ok();
     let source = canonical.to_string_lossy().into_owned();
     Ok(MediaItem {
@@ -263,7 +269,9 @@ pub fn discover(inputs: &[String], recursive: bool, first_id: u64) -> Discovery 
 
         let path = expand_path(trimmed);
         if !path.exists() {
-            result.warnings.push(format!("{}: no such file or directory", path.display()));
+            result
+                .warnings
+                .push(format!("{}: no such file or directory", path.display()));
             continue;
         }
 
@@ -460,7 +468,10 @@ mod tests {
         );
         assert_eq!(entries.len(), 2);
         assert_eq!(entries[0].source, "music/song.mp3");
-        assert_eq!(entries[0].title.as_deref(), Some("Example Artist - Example Song"));
+        assert_eq!(
+            entries[0].title.as_deref(),
+            Some("Example Artist - Example Song")
+        );
         assert_eq!(entries[0].duration, Some(123.5));
         assert_eq!(entries[1].source, "https://example.com/live");
     }
@@ -475,7 +486,10 @@ mod tests {
 
     #[test]
     fn url_titles_are_readable() {
-        assert_eq!(title_for_source("https://host.test/My%20Song.mp3?x=1"), "My Song");
+        assert_eq!(
+            title_for_source("https://host.test/My%20Song.mp3?x=1"),
+            "My Song"
+        );
         assert_eq!(title_for_source("https://host.test/live"), "live");
     }
 }

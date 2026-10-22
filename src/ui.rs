@@ -3,9 +3,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Margin, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{
-        Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Widget, Wrap,
-    },
+    widgets::{Block, BorderType, Borders, Clear, List, ListItem, Paragraph, Widget, Wrap},
     Frame,
 };
 
@@ -71,7 +69,11 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
 
     let columns = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(34), Constraint::Length(25), Constraint::Length(29)])
+        .constraints([
+            Constraint::Min(34),
+            Constraint::Length(25),
+            Constraint::Length(29),
+        ])
         .split(inner);
 
     let logo = vec![
@@ -121,7 +123,10 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let status_area = centered_rect(columns[1], 20, 1);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled(status, Style::default().fg(color).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                status,
+                Style::default().fg(color).add_modifier(Modifier::BOLD),
+            ),
             Span::styled(format!(" {spinner}"), Style::default().fg(theme::YELLOW)),
         ]))
         .alignment(Alignment::Center)
@@ -129,11 +134,19 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
         status_area,
     );
 
-    let backend = if app.connected { "MPV · IPC ONLINE" } else { "MPV · OFFLINE" };
+    let backend = if app.connected {
+        "MPV · IPC ONLINE"
+    } else {
+        "MPV · OFFLINE"
+    };
     let right = vec![
         Line::from(Span::styled(
             backend,
-            Style::default().fg(if app.connected { theme::MUTED } else { theme::RED }),
+            Style::default().fg(if app.connected {
+                theme::MUTED
+            } else {
+                theme::RED
+            }),
         )),
         Line::from(vec![
             Span::styled("VIDEO ", Style::default().fg(theme::DIM)),
@@ -147,7 +160,10 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
             ),
         ]),
     ];
-    frame.render_widget(Paragraph::new(right).alignment(Alignment::Right), columns[2]);
+    frame.render_widget(
+        Paragraph::new(right).alignment(Alignment::Right),
+        columns[2],
+    );
 }
 
 fn render_body(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -189,11 +205,13 @@ fn render_queue(frame: &mut Frame, app: &mut App, area: Rect) {
         " ⌕  / filter   ·   o open media".to_string()
     };
     frame.render_widget(
-        Paragraph::new(search_text).style(Style::default().fg(if app.input_mode == InputMode::Search {
-            theme::CYAN
-        } else {
-            theme::DIM
-        })),
+        Paragraph::new(search_text).style(Style::default().fg(
+            if app.input_mode == InputMode::Search {
+                theme::CYAN
+            } else {
+                theme::DIM
+            },
+        )),
         sections[0],
     );
 
@@ -206,20 +224,37 @@ fn render_queue(frame: &mut Frame, app: &mut App, area: Rect) {
                 Line::from(""),
                 Line::from(Span::styled(
                     "YOUR QUEUE IS EMPTY",
-                    Style::default().fg(theme::MUTED).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(theme::MUTED)
+                        .add_modifier(Modifier::BOLD),
                 )),
                 Line::from(""),
-                Line::from(Span::styled("Press o to open a file,", Style::default().fg(theme::DIM))),
-                Line::from(Span::styled("folder, playlist, or URL", Style::default().fg(theme::DIM))),
+                Line::from(Span::styled(
+                    "Press o to open a file,",
+                    Style::default().fg(theme::DIM),
+                )),
+                Line::from(Span::styled(
+                    "folder, playlist, or URL",
+                    Style::default().fg(theme::DIM),
+                )),
             ]
         } else {
             vec![
                 Line::from(""),
-                Line::from(Span::styled("NO MATCHES", Style::default().fg(theme::MUTED))),
-                Line::from(Span::styled("Esc clears the filter", Style::default().fg(theme::DIM))),
+                Line::from(Span::styled(
+                    "NO MATCHES",
+                    Style::default().fg(theme::MUTED),
+                )),
+                Line::from(Span::styled(
+                    "Esc clears the filter",
+                    Style::default().fg(theme::DIM),
+                )),
             ]
         };
-        frame.render_widget(Paragraph::new(empty).alignment(Alignment::Center), list_area);
+        frame.render_widget(
+            Paragraph::new(empty).alignment(Alignment::Center),
+            list_area,
+        );
         return;
     }
 
@@ -328,7 +363,12 @@ fn render_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         inner,
     );
 
-    if app.stage_mode != StageMode::Visualizer && app.current_item().map(|item| item.may_have_video()).unwrap_or(false) {
+    if app.stage_mode != StageMode::Visualizer
+        && app
+            .current_item()
+            .map(|item| item.may_have_video())
+            .unwrap_or(false)
+    {
         let (message, detail) = match app.video.status() {
             VideoStatus::Loading => (
                 "PREPARING TERMINAL VIDEO",
@@ -348,7 +388,9 @@ fn render_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             Paragraph::new(vec![
                 Line::from(Span::styled(
                     message,
-                    Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(theme::TEXT)
+                        .add_modifier(Modifier::BOLD),
                 )),
                 Line::from(Span::styled(detail, Style::default().fg(theme::MUTED))),
             ])
@@ -378,7 +420,9 @@ fn render_stage_badge(frame: &mut Frame, area: Rect, text: &str, color: Color) {
         height: 1,
     };
     frame.render_widget(
-        Paragraph::new(text).alignment(Alignment::Center).style(Style::default().fg(color).bg(theme::SURFACE)),
+        Paragraph::new(text)
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(color).bg(theme::SURFACE)),
         badge,
     );
 }
@@ -392,7 +436,12 @@ fn render_empty_stage(frame: &mut Frame, area: Rect) {
         )),
         Line::from(vec![
             Span::styled("│         ", Style::default().fg(theme::BORDER)),
-            Span::styled("▶", Style::default().fg(theme::CYAN).add_modifier(Modifier::BOLD)),
+            Span::styled(
+                "▶",
+                Style::default()
+                    .fg(theme::CYAN)
+                    .add_modifier(Modifier::BOLD),
+            ),
             Span::styled("          │", Style::default().fg(theme::BORDER)),
         ]),
         Line::from(Span::styled(
@@ -402,7 +451,9 @@ fn render_empty_stage(frame: &mut Frame, area: Rect) {
         Line::from(""),
         Line::from(Span::styled(
             "MAKE SOME NOISE.",
-            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme::TEXT)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
             "Open anything. Press o to begin.",
@@ -442,7 +493,10 @@ fn render_track_info(frame: &mut Frame, app: &App, area: Rect) {
             .split(inner)
     };
     let title = app.playback.media_title.as_deref().unwrap_or(&item.title);
-    let creator = match (app.playback.artist.as_deref(), app.playback.album.as_deref()) {
+    let creator = match (
+        app.playback.artist.as_deref(),
+        app.playback.album.as_deref(),
+    ) {
         (Some(artist), Some(album)) => format!("{artist}  ·  {album}"),
         (Some(artist), None) => artist.to_string(),
         (None, Some(album)) => album.to_string(),
@@ -463,12 +517,17 @@ fn render_track_info(frame: &mut Frame, app: &App, area: Rect) {
     let left = vec![
         Line::from(Span::styled(
             ellipsize(title, 74),
-            Style::default().fg(theme::TEXT).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme::TEXT)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(creator, Style::default().fg(theme::PURPLE))),
         Line::from(Span::styled(source, Style::default().fg(theme::DIM))),
         Line::from(vec![
-            Span::styled(format!(" {} ", item.kind.label()), Style::default().fg(theme::CYAN)),
+            Span::styled(
+                format!(" {} ", item.kind.label()),
+                Style::default().fg(theme::CYAN),
+            ),
             Span::styled("  ·  ", Style::default().fg(theme::BORDER)),
             Span::styled(
                 format!("QUEUE {queue_position}/{}", app.items.len()),
@@ -514,7 +573,10 @@ fn render_track_info(frame: &mut Frame, app: &App, area: Rect) {
                 Span::styled("mpv + FFmpeg", Style::default().fg(theme::CYAN)),
             ]),
         ];
-        frame.render_widget(Paragraph::new(right).alignment(Alignment::Right), columns[1]);
+        frame.render_widget(
+            Paragraph::new(right).alignment(Alignment::Right),
+            columns[1],
+        );
     }
 }
 
@@ -533,11 +595,18 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let columns = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(40), Constraint::Percentage(30)])
+        .constraints([
+            Constraint::Percentage(30),
+            Constraint::Percentage(40),
+            Constraint::Percentage(30),
+        ])
         .split(sections[1]);
 
     let volume_area = centered_rect(columns[0], 23, 1);
-    let minus = Rect { width: 3, ..volume_area };
+    let minus = Rect {
+        width: 3,
+        ..volume_area
+    };
     let plus = Rect {
         x: volume_area.x + volume_area.width.saturating_sub(3),
         width: 3,
@@ -546,11 +615,15 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
     app.regions.volume_down = minus;
     app.regions.volume_up = plus;
     frame.render_widget(
-        Paragraph::new(" − ").alignment(Alignment::Center).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new(" − ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::MUTED)),
         minus,
     );
     frame.render_widget(
-        Paragraph::new(" + ").alignment(Alignment::Center).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new(" + ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::MUTED)),
         plus,
     );
     let volume_label = if app.playback.muted {
@@ -564,32 +637,60 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
         ..volume_area
     };
     frame.render_widget(
-        Paragraph::new(volume_label).alignment(Alignment::Center).style(Style::default().fg(
-            if app.playback.muted { theme::RED } else { theme::CYAN },
-        )),
+        Paragraph::new(volume_label)
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(if app.playback.muted {
+                theme::RED
+            } else {
+                theme::CYAN
+            })),
         volume_text,
     );
 
     let controls = centered_rect(columns[1], 21, 1);
-    let previous = Rect { width: 6, ..controls };
-    let play = Rect { x: controls.x + 7, width: 7, ..controls };
-    let next = Rect { x: controls.x + 15, width: 6, ..controls };
+    let previous = Rect {
+        width: 6,
+        ..controls
+    };
+    let play = Rect {
+        x: controls.x + 7,
+        width: 7,
+        ..controls
+    };
+    let next = Rect {
+        x: controls.x + 15,
+        width: 6,
+        ..controls
+    };
     app.regions.previous = previous;
     app.regions.play_pause = play;
     app.regions.next = next;
     frame.render_widget(
-        Paragraph::new("  ⏮  ").alignment(Alignment::Center).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new("  ⏮  ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::MUTED)),
         previous,
     );
-    let play_text = if app.playback.paused { "  ▶  " } else { "  ❚❚  " };
+    let play_text = if app.playback.paused {
+        "  ▶  "
+    } else {
+        "  ❚❚  "
+    };
     frame.render_widget(
         Paragraph::new(play_text)
             .alignment(Alignment::Center)
-            .style(Style::default().fg(theme::BACKGROUND).bg(theme::CYAN).add_modifier(Modifier::BOLD)),
+            .style(
+                Style::default()
+                    .fg(theme::BACKGROUND)
+                    .bg(theme::CYAN)
+                    .add_modifier(Modifier::BOLD),
+            ),
         play,
     );
     frame.render_widget(
-        Paragraph::new("  ⏭  ").alignment(Alignment::Center).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new("  ⏭  ")
+            .alignment(Alignment::Center)
+            .style(Style::default().fg(theme::MUTED)),
         next,
     );
 
@@ -600,7 +701,9 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
         app.playback.speed
     );
     frame.render_widget(
-        Paragraph::new(mode_text).alignment(Alignment::Right).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new(mode_text)
+            .alignment(Alignment::Right)
+            .style(Style::default().fg(theme::MUTED)),
         centered_rect(columns[2], columns[2].width.min(36), 1),
     );
 }
@@ -608,7 +711,11 @@ fn render_transport(frame: &mut Frame, app: &mut App, area: Rect) {
 fn render_progress(frame: &mut Frame, app: &mut App, area: Rect) {
     let position = app.position();
     let duration = app.duration();
-    let left_width = if duration.map(|value| value >= 3600.0).unwrap_or(false) { 9 } else { 7 };
+    let left_width = if duration.map(|value| value >= 3600.0).unwrap_or(false) {
+        9
+    } else {
+        7
+    };
     let right_width = left_width;
     let bar = Rect {
         x: area.x + left_width + 1,
@@ -619,15 +726,26 @@ fn render_progress(frame: &mut Frame, app: &mut App, area: Rect) {
     app.regions.progress = bar;
     frame.render_widget(
         Paragraph::new(format_time(position)).style(Style::default().fg(theme::TEXT)),
-        Rect { width: left_width, ..area },
+        Rect {
+            width: left_width,
+            ..area
+        },
     );
     let right_label = match duration {
         Some(duration) => format_time(duration),
-        None if app.current_item().map(MediaItem::is_remote).unwrap_or(false) => "LIVE".to_string(),
+        None if app
+            .current_item()
+            .map(MediaItem::is_remote)
+            .unwrap_or(false) =>
+        {
+            "LIVE".to_string()
+        }
         None => "--:--".to_string(),
     };
     frame.render_widget(
-        Paragraph::new(right_label).alignment(Alignment::Right).style(Style::default().fg(theme::MUTED)),
+        Paragraph::new(right_label)
+            .alignment(Alignment::Right)
+            .style(Style::default().fg(theme::MUTED)),
         Rect {
             x: area.x + area.width.saturating_sub(right_width),
             width: right_width,
@@ -650,11 +768,9 @@ fn render_progress(frame: &mut Frame, app: &mut App, area: Rect) {
         } else {
             "─"
         };
-        buffer[(bar.x + offset, bar.y)].set_symbol(character).set_fg(if played {
-            theme::CYAN
-        } else {
-            theme::BORDER
-        });
+        buffer[(bar.x + offset, bar.y)]
+            .set_symbol(character)
+            .set_fg(if played { theme::CYAN } else { theme::BORDER });
     }
 }
 
@@ -687,7 +803,11 @@ fn label(text: &'static str) -> Span<'static> {
 }
 
 fn render_toast(frame: &mut Frame, app: &App, area: Rect) {
-    let Some(toast) = app.toast.as_ref().filter(|toast| toast.until > std::time::Instant::now()) else {
+    let Some(toast) = app
+        .toast
+        .as_ref()
+        .filter(|toast| toast.until > std::time::Instant::now())
+    else {
         return;
     };
     let color = match toast.kind {
@@ -721,7 +841,11 @@ fn render_toast(frame: &mut Frame, app: &App, area: Rect) {
 }
 
 fn render_open_dialog(frame: &mut Frame, app: &App, area: Rect) {
-    let dialog = centered_rect(area, area.width.saturating_sub(6).min(76), 7.min(area.height));
+    let dialog = centered_rect(
+        area,
+        area.width.saturating_sub(6).min(76),
+        7.min(area.height),
+    );
     frame.render_widget(Clear, dialog);
     let block = theme::panel(" OPEN MEDIA · FILE / FOLDER / URL ", theme::CYAN)
         .border_style(Style::default().fg(theme::CYAN).bg(theme::ELEVATED))
@@ -759,7 +883,10 @@ fn input_line(app: &App) -> Line<'static> {
     Line::from(vec![
         Span::styled(" › ", Style::default().fg(theme::CYAN)),
         Span::styled(before, Style::default().fg(theme::TEXT)),
-        Span::styled(current.to_string(), Style::default().fg(theme::BACKGROUND).bg(theme::CYAN)),
+        Span::styled(
+            current.to_string(),
+            Style::default().fg(theme::BACKGROUND).bg(theme::CYAN),
+        ),
         Span::styled(after, Style::default().fg(theme::TEXT)),
     ])
 }
@@ -811,13 +938,21 @@ fn render_help(frame: &mut Frame, area: Rect) {
 fn help_section(title: &'static str) -> Line<'static> {
     Line::from(vec![
         Span::raw(""),
-        Span::styled(title, Style::default().fg(theme::CYAN).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            title,
+            Style::default()
+                .fg(theme::CYAN)
+                .add_modifier(Modifier::BOLD),
+        ),
     ])
 }
 
 fn help_row(key: &'static str, description: &'static str) -> Line<'static> {
     Line::from(vec![
-        Span::styled(format!(" {key:<20}", key = key), Style::default().fg(theme::PURPLE)),
+        Span::styled(
+            format!(" {key:<20}", key = key),
+            Style::default().fg(theme::PURPLE),
+        ),
         Span::styled(description, Style::default().fg(theme::MUTED)),
     ])
 }
@@ -827,14 +962,28 @@ fn render_small_terminal(frame: &mut Frame, area: Rect) {
     let lines = vec![
         Line::from(Span::styled(
             "▶ PLAY ANYTHING",
-            Style::default().fg(theme::CYAN).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(theme::CYAN)
+                .add_modifier(Modifier::BOLD),
         )),
         Line::from(""),
-        Line::from(Span::styled("A little more room, please.", Style::default().fg(theme::TEXT))),
-        Line::from(Span::styled("Minimum terminal size: 60 × 18", Style::default().fg(theme::MUTED))),
-        Line::from(Span::styled("Resize to keep your place in the queue.", Style::default().fg(theme::DIM))),
+        Line::from(Span::styled(
+            "A little more room, please.",
+            Style::default().fg(theme::TEXT),
+        )),
+        Line::from(Span::styled(
+            "Minimum terminal size: 60 × 18",
+            Style::default().fg(theme::MUTED),
+        )),
+        Line::from(Span::styled(
+            "Resize to keep your place in the queue.",
+            Style::default().fg(theme::DIM),
+        )),
         Line::from(""),
-        Line::from(Span::styled("q to quit", Style::default().fg(theme::PURPLE))),
+        Line::from(Span::styled(
+            "q to quit",
+            Style::default().fg(theme::PURPLE),
+        )),
     ];
     frame.render_widget(Paragraph::new(lines).alignment(Alignment::Center), content);
 }
@@ -862,10 +1011,10 @@ impl Widget for TerminalVideo<'_> {
         for y in 0..area.height {
             for x in 0..area.width {
                 let source_x = usize::from(x) * self.frame.width / usize::from(area.width);
-                let source_top = usize::from(y) * 2 * self.frame.height
-                    / (usize::from(area.height) * 2);
-                let source_bottom = (usize::from(y) * 2 + 1) * self.frame.height
-                    / (usize::from(area.height) * 2);
+                let source_top =
+                    usize::from(y) * 2 * self.frame.height / (usize::from(area.height) * 2);
+                let source_bottom =
+                    (usize::from(y) * 2 + 1) * self.frame.height / (usize::from(area.height) * 2);
                 let top = pixel(self.frame, source_x, source_top);
                 let bottom = pixel(self.frame, source_x, source_bottom);
                 buffer[(area.x + x, area.y + y)]
@@ -884,7 +1033,11 @@ fn pixel(frame: &VideoFrame, x: usize, y: usize) -> Color {
     if index + 2 >= frame.pixels.len() {
         return Color::Black;
     }
-    Color::Rgb(frame.pixels[index], frame.pixels[index + 1], frame.pixels[index + 2])
+    Color::Rgb(
+        frame.pixels[index],
+        frame.pixels[index + 1],
+        frame.pixels[index + 2],
+    )
 }
 
 struct AmbientVisualizer {
@@ -905,7 +1058,9 @@ impl Widget for AmbientVisualizer {
         let phase = if self.paused { 0.35 } else { self.phase };
 
         for x in 0..area.width {
-            buffer[(area.x + x, baseline)].set_char('─').set_fg(theme::BORDER);
+            buffer[(area.x + x, baseline)]
+                .set_char('─')
+                .set_fg(theme::BORDER);
         }
         for index in 0..count {
             let i = index as f64;
@@ -913,7 +1068,8 @@ impl Widget for AmbientVisualizer {
                 + (i * 0.17 - phase * 1.9).cos() * 0.30
                 + (i * 0.73 + phase * 1.2).sin() * 0.25;
             let envelope = 0.35 + 0.65 * ((i / count as f64) * std::f64::consts::PI).sin();
-            let energy = (0.14 + wave.abs() * 0.86) * envelope * if self.paused { 0.32 } else { 1.0 };
+            let energy =
+                (0.14 + wave.abs() * 0.86) * envelope * if self.paused { 0.32 } else { 1.0 };
             let height = (energy * max_height as f64).round() as usize;
             let x = area.x + (index * spacing + spacing / 2) as u16;
             if x >= area.x + area.width {

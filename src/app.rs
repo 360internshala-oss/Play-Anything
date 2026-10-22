@@ -426,7 +426,11 @@ impl App {
             return;
         };
         for (key, value) in metadata {
-            let Some(value) = value.as_str().map(str::trim).filter(|value| !value.is_empty()) else {
+            let Some(value) = value
+                .as_str()
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+            else {
                 continue;
             };
             match key.to_ascii_lowercase().as_str() {
@@ -450,7 +454,10 @@ impl App {
         if let Err(error) = self.player.load(&item.source) {
             self.loading = false;
             self.playback.paused = true;
-            self.toast(format!("Could not play {}: {error}", item.title), ToastKind::Error);
+            self.toast(
+                format!("Could not play {}: {error}", item.title),
+                ToastKind::Error,
+            );
         }
     }
 
@@ -505,7 +512,9 @@ impl App {
         if self.items.is_empty() {
             return;
         }
-        let next = self.current_index().map_or(self.selected, |index| index + 1);
+        let next = self
+            .current_index()
+            .map_or(self.selected, |index| index + 1);
         self.play_index(next % self.items.len());
     }
 
@@ -580,7 +589,11 @@ impl App {
         if !self.video_enabled || self.stage_mode == StageMode::Visualizer {
             return;
         }
-        let Some(item) = self.current_item().cloned().filter(|item| item.may_have_video()) else {
+        let Some(item) = self
+            .current_item()
+            .cloned()
+            .filter(|item| item.may_have_video())
+        else {
             return;
         };
         let area = self.regions.stage;
@@ -593,7 +606,10 @@ impl App {
             && self.connected
             && !self.playback.idle
             && self.stage_mode != StageMode::Visualizer
-            && self.current_item().map(MediaItem::may_have_video).unwrap_or(false);
+            && self
+                .current_item()
+                .map(MediaItem::may_have_video)
+                .unwrap_or(false);
         if !should_decode {
             if self.video.signature().is_some() {
                 self.video.stop();
@@ -862,9 +878,7 @@ impl App {
                 }
             }
             InputEdit::Left => self.input_cursor = self.input_cursor.saturating_sub(1),
-            InputEdit::Right => {
-                self.input_cursor = (self.input_cursor + 1).min(characters.len())
-            }
+            InputEdit::Right => self.input_cursor = (self.input_cursor + 1).min(characters.len()),
             InputEdit::Home => self.input_cursor = 0,
             InputEdit::End => self.input_cursor = characters.len(),
             InputEdit::Clear => {
@@ -887,7 +901,10 @@ impl App {
             return true;
         }
         if self.show_help {
-            if matches!(key.code, KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')) {
+            if matches!(
+                key.code,
+                KeyCode::Esc | KeyCode::Char('?') | KeyCode::Char('q')
+            ) {
                 self.show_help = false;
             }
             return false;
@@ -906,7 +923,9 @@ impl App {
                     self.edit_input(InputEdit::Clear)
                 }
                 KeyCode::Char(character)
-                    if !key.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                    if !key
+                        .modifiers
+                        .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
                 {
                     self.edit_input(InputEdit::Character(character));
                 }
@@ -989,7 +1008,9 @@ impl App {
             return;
         }
         match mouse.kind {
-            MouseEventKind::ScrollUp if contains(self.regions.playlist, mouse.column, mouse.row) => {
+            MouseEventKind::ScrollUp
+                if contains(self.regions.playlist, mouse.column, mouse.row) =>
+            {
                 self.move_selection(-3)
             }
             MouseEventKind::ScrollDown

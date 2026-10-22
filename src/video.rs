@@ -371,7 +371,9 @@ fn resolve_stream(
         .stderr(Stdio::null())
         .spawn()
         .map_err(|error| {
-            format!("Could not run '{resolver}' for this web preview ({error}); trying the direct URL")
+            format!(
+                "Could not run '{resolver}' for this web preview ({error}); trying the direct URL"
+            )
         })?;
 
     let started = Instant::now();
@@ -386,7 +388,9 @@ fn resolve_stream(
             Ok(None) => {}
             Err(error) => {
                 let _ = child.kill();
-                return Err(format!("Stream resolver failed: {error}; trying the direct URL"));
+                return Err(format!(
+                    "Stream resolver failed: {error}; trying the direct URL"
+                ));
             }
         }
         if started.elapsed() > Duration::from_secs(30) {

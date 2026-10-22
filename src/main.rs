@@ -22,9 +22,7 @@ use crossterm::{
         Event,
     },
     execute,
-    terminal::{
-        disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-    },
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use media::discover;
 use player::MpvPlayer;
@@ -131,10 +129,7 @@ fn run() -> Result<()> {
     result
 }
 
-fn run_event_loop(
-    terminal: &mut Terminal<CrosstermBackend<Stdout>>,
-    mut app: App,
-) -> Result<()> {
+fn run_event_loop(terminal: &mut Terminal<CrosstermBackend<Stdout>>, mut app: App) -> Result<()> {
     const FRAME_TIME: Duration = Duration::from_millis(33);
     terminal.clear().context("Could not clear the terminal")?;
 
@@ -210,7 +205,10 @@ fn print_doctor(cli: &Cli) {
         }
     );
     println!("\nPlatform: {}", env::consts::OS);
-    println!("Terminal: {}", env::var("TERM").unwrap_or_else(|_| "unknown".to_string()));
+    println!(
+        "Terminal: {}",
+        env::var("TERM").unwrap_or_else(|_| "unknown".to_string())
+    );
     println!("\nAudio works with mpv alone. Install FFmpeg for video and yt-dlp for site URLs.");
 }
 

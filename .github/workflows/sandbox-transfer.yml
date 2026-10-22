@@ -1,0 +1,34 @@
+name: Sandbox dependency transfer
+
+on:
+  push:
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    if: ${{ !contains(github.event.head_commit.message, 'sandbox payloads') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Prepare project-local media payloads
+        run: |
+          set -euo pipefail
+          mkdir -p transfer
+          curl -fL --retry 3 'https://github.com/pkgforge-dev/mpv-AppImage/releases/download/v0.41.0%402026-10-07_1791382432/mpv-v0.41.0-anylinux-x86_64.AppImage' -o transfer/mpv.AppImage
+          curl -fL --retry 3 'https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n8.1-latest-linux64-lgpl-shared-8.1.tar.xz' -o transfer/ffmpeg.tar.xz
+          tar -cJf sandbox-media.tar.xz -C transfer mpv.AppImage ffmpeg.tar.xz
+      - name: Prepare offline Cargo payload
+        run: |
+          set -euo pipefail
+          cargo vendor --locked transfer/vendor
+          tar -cJf sandbox-vendor.tar.xz -C transfer vendor
+      - name: Report payload sizes
+        run: ls -lh sandbox-*.tar.xz
+      - name: Transfer payloads through the temporary branch commit
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Transfer sandbox payloads"
+          file_pattern: "sandbox-*.tar.xz"

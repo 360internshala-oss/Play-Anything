@@ -117,14 +117,23 @@ install_ytdlp_linux() {
 }
 
 install_macos_tools() {
-    command -v brew >/dev/null 2>&1 || \
-        fail 'Automatic macOS setup requires Homebrew; Linux setup is fully project-local'
+    if ! command -v brew >/dev/null 2>&1; then
+        log 'Installing Homebrew for the macOS media backends'
+        NONINTERACTIVE=1 /bin/bash -c \
+            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif [[ -x /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+    fi
+    command -v brew >/dev/null 2>&1 || fail 'Could not initialize Homebrew'
     log 'Installing media backends with Homebrew'
     brew install mpv ffmpeg yt-dlp
-    ln -sfn "$(command -v mpv)" "$PLAY_ANYTHING_TOOLS/bin/mpv"
-    ln -sfn "$(command -v ffmpeg)" "$PLAY_ANYTHING_TOOLS/bin/ffmpeg"
-    ln -sfn "$(command -v ffprobe)" "$PLAY_ANYTHING_TOOLS/bin/ffprobe"
-    ln -sfn "$(command -v yt-dlp)" "$PLAY_ANYTHING_TOOLS/bin/yt-dlp"
+    ln -sfn "$(brew --prefix mpv)/bin/mpv" "$PLAY_ANYTHING_TOOLS/bin/mpv"
+    ln -sfn "$(brew --prefix ffmpeg)/bin/ffmpeg" "$PLAY_ANYTHING_TOOLS/bin/ffmpeg"
+    ln -sfn "$(brew --prefix ffmpeg)/bin/ffprobe" "$PLAY_ANYTHING_TOOLS/bin/ffprobe"
+    ln -sfn "$(brew --prefix yt-dlp)/bin/yt-dlp" "$PLAY_ANYTHING_TOOLS/bin/yt-dlp"
 }
 
 ensure_media() {
@@ -147,7 +156,17 @@ ensure_media() {
     log "yt-dlp ready: $(yt-dlp --version)"
 }
 
-mkdir -p "$PLAY_ANYTHING_TOOLS"/{bin,downloads,cargo-home}
-ensure_rust
+install_rust=1
+case "${1:-}" in
+    '') ;;
+    --media-only) install_rust=0 ;;
+    *) fail "Unknown bootstrap option: $1" ;;
+esac
+
+mkdir -p "$PLAY_ANYTHING_TOOLS"/{bin,downloads}
+if [[ "$install_rust" == 1 ]]; then
+    mkdir -p "$PLAY_ANYTHING_TOOLS/cargo-home"
+    ensure_rust
+fi
 ensure_media
-log "Everything is installed inside $PLAY_ANYTHING_TOOLS"
+log "Dependencies are installed inside $PLAY_ANYTHING_TOOLS"

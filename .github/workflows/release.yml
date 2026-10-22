@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Release tag to create or update
+        required: true
+        default: v1.0.0
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            platform: linux
+            architecture: x86_64
+          - os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            platform: linux
+            architecture: aarch64
+          - os: macos-13
+            target: x86_64-apple-darwin
+            platform: macos
+            architecture: x86_64
+          - os: macos-14
+            target: aarch64-apple-darwin
+            platform: macos
+            architecture: aarch64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            platform: windows
+            architecture: x86_64
+          - os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            platform: windows
+            architecture: aarch64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - name: Test native target
+        run: cargo test --locked --target ${{ matrix.target }} --all-targets
+      - name: Build native executable
+        run: cargo build --locked --release --target ${{ matrix.target }}
+      - name: Package Unix executable
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          cp "target/${{ matrix.target }}/release/play-anything" \
+            "dist/play-anything-${{ matrix.platform }}-${{ matrix.architecture }}"
+      - name: Package Windows executable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Copy-Item "target/${{ matrix.target }}/release/play-anything.exe" `
+            "dist/play-anything-${{ matrix.platform }}-${{ matrix.architecture }}.exe"
+      - name: Validate PowerShell installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path 'installation/install.ps1').Path,
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+          if ($errors.Count -gt 0) {
+            $errors | ForEach-Object { Write-Error $_ }
+            exit 1
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: package-${{ matrix.platform }}-${{ matrix.architecture }}
+          path: dist/*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: package-*
+          path: dist
+          merge-multiple: true
+      - name: Publish prebuilt installer assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag_name || github.ref_name }}
+        run: |
+          set -euo pipefail
+          ls -lh dist
+          gh release create "$TAG" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Play Anything $TAG" \
+            --generate-notes || \
+            gh release upload "$TAG" dist/* --clobber

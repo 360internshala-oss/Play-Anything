@@ -15,9 +15,41 @@ Play local music, movies, folders, playlists, radio streams, and supported web U
 - **Responsive modern interface** — true-color video, ambient visualizer, track metadata, clickable progress/transport controls, mouse wheel, toast messages, and focus mode.
 - **Clean terminal lifecycle** — raw mode, mouse capture, and alternate screen are restored on exit and panic.
 
-## One-command setup and run
+## Install — no Rust required
 
-On Linux x86_64 or aarch64, **this is the only command you need**:
+### Linux and macOS
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/360internshala-oss/Play-Anything/main/installation/install.sh | bash
+```
+
+### Windows 10/11 — PowerShell
+
+```powershell
+irm https://raw.githubusercontent.com/360internshala-oss/Play-Anything/main/installation/install.ps1 | iex
+```
+
+The installer downloads a **prebuilt native executable** and all required media backends. Users do **not** install Rust, Cargo, mpv, FFmpeg, or yt-dlp themselves, and nothing needs to be compiled on their machine.
+
+After installation, either command opens the **full interactive TUI**:
+
+```bash
+play-anything
+# or
+Play-Anything
+```
+
+There are no required subcommands. The application enters its alternate-screen interface immediately, with the queue, video/visualizer stage, metadata, playback controls, and keyboard/mouse support.
+
+- **Linux:** native x86_64 and aarch64 builds with project-local media runtimes
+- **macOS:** native Intel and Apple Silicon builds; media setup is automated with Homebrew
+- **Windows:** native x86_64 and ARM64 builds with managed mpv, FFmpeg, and yt-dlp runtimes
+- **Unix runtime:** `~/.local/share/play-anything`
+- **Windows runtime:** `%LOCALAPPDATA%\Programs\play-anything`
+
+## Build and run from source — optional
+
+If you want to modify or develop Play Anything, the source launcher still handles the complete Rust build environment. On Linux x86_64 or aarch64, use:
 
 ```bash
 git clone https://github.com/360internshala-oss/Play-Anything.git
@@ -47,7 +79,7 @@ To prevent any network access after setup:
 PLAY_ANYTHING_OFFLINE=1 ./play
 ```
 
-macOS uses the same project-local Rust bootstrap and installs media backends through Homebrew when available. The player itself supports Linux and macOS through mpv's Unix-socket JSON IPC. Linux media setup is fully project-local and does not depend on a distribution package manager.
+macOS uses the same project-local Rust bootstrap and installs media backends through Homebrew when available. Linux media setup is fully project-local and does not depend on a distribution package manager. The player communicates with mpv through Unix sockets on Linux/macOS and native named pipes on Windows.
 
 With no media arguments, Play Anything scans supported media in the current directory without entering subdirectories. An empty queue is fine: press **`o`** to open anything.
 
@@ -177,6 +209,9 @@ The unit test suite does not need a running mpv server or media files. The optio
 ### Source layout
 
 ```text
+play              Source-only setup/build/TUI launcher
+installation/    No-Rust Linux, macOS, and Windows installers
+scripts/         Shared toolchain/media bootstrap and smoke tests
 src/main.rs    CLI, terminal setup, event loop, and diagnostics
 src/app.rs     Queue/playback state, controls, input, and synchronization
 src/player.rs  Persistent mpv process and JSON IPC protocol

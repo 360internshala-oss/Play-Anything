@@ -16,6 +16,8 @@ jobs:
         with:
           components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
+      - name: Validate Unix installer scripts
+        run: bash -n installation/install.sh play scripts/*.sh
       - name: Check formatting
         run: cargo fmt --all -- --check
       - name: Lint

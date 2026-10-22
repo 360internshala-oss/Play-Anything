@@ -1,12 +1,9 @@
-#[cfg(not(unix))]
-compile_error!("play-anything currently supports Linux and macOS (mpv Unix-socket IPC)");
+#[cfg(not(any(unix, windows)))]
+compile_error!("play-anything supports Unix sockets and Windows named-pipe mpv IPC");
 
-#[cfg(unix)]
 use std::{
-    env, fs,
-    io::{BufRead, BufReader, Write},
-    os::unix::net::UnixStream,
-    path::PathBuf,
+    io::{self, BufRead, BufReader, Write},
+    path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
@@ -17,9 +14,18 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
+#[cfg(windows)]
+use std::fs::{File, OpenOptions};
 #[cfg(unix)]
+use std::{env, fs, os::unix::net::UnixStream};
+
 use anyhow::{bail, Context, Result};
 use serde_json::{json, Value};
+
+#[cfg(unix)]
+type IpcStream = UnixStream;
+#[cfg(windows)]
+type IpcStream = File;
 
 #[derive(Debug, Clone)]
 pub enum PlayerEvent {
@@ -34,26 +40,21 @@ pub enum PlayerEvent {
 ///
 /// mpv deliberately runs without a video window. It remains the audio/playback clock while the
 /// separate decoder in `video.rs` supplies frames to the terminal UI.
-#[cfg(unix)]
 pub struct MpvPlayer {
     child: Child,
-    writer: Mutex<UnixStream>,
+    writer: Mutex<IpcStream>,
     socket_path: PathBuf,
     request_id: AtomicU64,
     shutting_down: Arc<AtomicBool>,
     pub events: Receiver<PlayerEvent>,
 }
 
-#[cfg(unix)]
 impl MpvPlayer {
     pub fn spawn(binary: &str) -> Result<Self> {
         let unique = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .map_or(0, |duration| duration.as_nanos());
-        let socket_path = env::temp_dir().join(format!(
-            "play-anything-{}-{unique}.sock",
-            std::process::id()
-        ));
+        let socket_path = ipc_path(unique);
         let socket = socket_path.to_string_lossy().into_owned();
 
         let mut child = Command::new(binary)
@@ -77,15 +78,15 @@ impl MpvPlayer {
             .spawn()
             .with_context(|| {
                 format!(
-                    "Could not start '{binary}'. Install mpv and make sure it is on PATH \
-                     (https://mpv.io/installation/)."
+                    "Could not start '{binary}'. Run the Play Anything installer to install \
+                     its managed mpv backend."
                 )
             })?;
 
         let mut connected = None;
         let mut last_error = None;
         for _ in 0..160 {
-            match UnixStream::connect(&socket_path) {
+            match connect_ipc(&socket_path) {
                 Ok(stream) => {
                     connected = Some(stream);
                     break;
@@ -93,7 +94,7 @@ impl MpvPlayer {
                 Err(error) => last_error = Some(error),
             }
             if let Some(status) = child.try_wait().context("Could not inspect mpv process")? {
-                let _ = fs::remove_file(&socket_path);
+                cleanup_ipc(&socket_path);
                 bail!("mpv exited before accepting IPC connections ({status})");
             }
             thread::sleep(Duration::from_millis(25));
@@ -102,7 +103,7 @@ impl MpvPlayer {
         let Some(stream) = connected else {
             let _ = child.kill();
             let _ = child.wait();
-            let _ = fs::remove_file(&socket_path);
+            cleanup_ipc(&socket_path);
             bail!(
                 "Timed out connecting to mpv IPC at {}: {}",
                 socket_path.display(),
@@ -111,9 +112,7 @@ impl MpvPlayer {
                     .unwrap_or_else(|| "unknown error".to_string())
             );
         };
-        stream
-            .set_write_timeout(Some(Duration::from_secs(2)))
-            .context("Could not configure mpv IPC")?;
+        configure_ipc(&stream).context("Could not configure mpv IPC")?;
 
         let reader = stream
             .try_clone()
@@ -250,16 +249,59 @@ impl MpvPlayer {
     }
 }
 
-#[cfg(unix)]
 impl Drop for MpvPlayer {
     fn drop(&mut self) {
         self.shutting_down.store(true, Ordering::Relaxed);
         let _ = self.command(json!(["quit"]));
         let _ = self.child.kill();
         let _ = self.child.wait();
-        let _ = fs::remove_file(&self.socket_path);
+        cleanup_ipc(&self.socket_path);
     }
 }
+
+#[cfg(unix)]
+fn ipc_path(unique: u128) -> PathBuf {
+    env::temp_dir().join(format!(
+        "play-anything-{}-{unique}.sock",
+        std::process::id()
+    ))
+}
+
+#[cfg(windows)]
+fn ipc_path(unique: u128) -> PathBuf {
+    PathBuf::from(format!(
+        r"\\.\pipe\play-anything-{}-{unique}",
+        std::process::id()
+    ))
+}
+
+#[cfg(unix)]
+fn connect_ipc(path: &Path) -> io::Result<IpcStream> {
+    UnixStream::connect(path)
+}
+
+#[cfg(windows)]
+fn connect_ipc(path: &Path) -> io::Result<IpcStream> {
+    OpenOptions::new().read(true).write(true).open(path)
+}
+
+#[cfg(unix)]
+fn configure_ipc(stream: &IpcStream) -> io::Result<()> {
+    stream.set_write_timeout(Some(Duration::from_secs(2)))
+}
+
+#[cfg(windows)]
+fn configure_ipc(_stream: &IpcStream) -> io::Result<()> {
+    Ok(())
+}
+
+#[cfg(unix)]
+fn cleanup_ipc(path: &Path) {
+    let _ = fs::remove_file(path);
+}
+
+#[cfg(windows)]
+fn cleanup_ipc(_path: &Path) {}
 
 fn parse_event(line: &str) -> Option<PlayerEvent> {
     let value: Value = serde_json::from_str(line).ok()?;

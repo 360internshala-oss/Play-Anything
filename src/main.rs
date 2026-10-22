@@ -142,19 +142,24 @@ fn managed_binary(requested: &str, name: &str) -> String {
         return requested.to_string();
     }
 
-    let mut candidates = Vec::new();
+    let mut roots = Vec::new();
     if let Some(tools) = env::var_os("PLAY_ANYTHING_TOOLS") {
-        candidates.push(PathBuf::from(tools).join("bin").join(name));
+        roots.push(PathBuf::from(tools));
     }
-    candidates.push(
-        Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join(".tools")
-            .join("bin")
-            .join(name),
-    );
+    roots.push(Path::new(env!("CARGO_MANIFEST_DIR")).join(".tools"));
+    if let Ok(executable) = env::current_exe() {
+        if let Some(root) = executable.parent().and_then(Path::parent) {
+            roots.push(root.join(".tools"));
+        }
+    }
 
-    candidates
+    let executable = format!("{name}{}", env::consts::EXE_SUFFIX);
+    roots
         .into_iter()
+        .flat_map(|root| {
+            let runtime = root.join(format!("{name}-runtime")).join(&executable);
+            [root.join("bin").join(&executable), runtime]
+        })
         .find(|path| path.is_file())
         .map(|path| path.to_string_lossy().into_owned())
         .unwrap_or_else(|| requested.to_string())

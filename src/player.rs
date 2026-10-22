@@ -241,10 +241,6 @@ impl MpvPlayer {
         self.command(json!(["set_property", "speed", speed]))
     }
 
-    pub fn seek_relative(&self, seconds: f64) -> Result<()> {
-        self.command(json!(["seek", seconds, "relative+exact"]))
-    }
-
     pub fn seek_absolute(&self, seconds: f64) -> Result<()> {
         self.command(json!(["seek", seconds, "absolute+exact"]))
     }

@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     tags: ['v*']
-    branches: ['arena/23cc68d3-play-anything']
   workflow_dispatch:
     inputs:
       tag_name:
@@ -105,7 +104,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          TAG: ${{ inputs.tag_name || (startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0') }}
+          TAG: ${{ inputs.tag_name || github.ref_name }}
         run: |
           set -euo pipefail
           ls -lh dist
